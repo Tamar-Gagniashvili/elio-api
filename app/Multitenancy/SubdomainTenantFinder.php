@@ -13,22 +13,20 @@ class SubdomainTenantFinder extends TenantFinder
         $host = $request->getHost();
 
         // Ignore base domains
-        if ($host === 'localhost' || $host === '127.0.0.1' || $host === 'relink.app') {
+        if ($host === 'localhost' || $host === '127.0.0.1' || $host === 'relink.app' || $host === 'relink.ge' || $host === 'api.relink.ge') {
             return null;
         }
 
-        $parts = explode('.', $host);
-        $lastPart = $parts[count($parts) - 1];
+        $subdomain = null;
 
-        // For localhost, the subdomain is the first part (e.g. acme.localhost)
-        if ($lastPart === 'localhost') {
-            $subdomain = implode('.', array_slice($parts, 0, -1));
-        } else {
-            // For production (e.g. acme.relink.app), expected at least 3 parts
-            if (count($parts) < 3) {
-                return null;
-            }
-            $subdomain = implode('.', array_slice($parts, 0, -2));
+        if (str_ends_with($host, '.api.relink.ge')) {
+            $subdomain = substr($host, 0, -strlen('.api.relink.ge'));
+        } elseif (str_ends_with($host, '.relink.ge')) {
+            $subdomain = substr($host, 0, -strlen('.relink.ge'));
+        } elseif (str_ends_with($host, '.relink.app')) {
+            $subdomain = substr($host, 0, -strlen('.relink.app'));
+        } elseif (str_ends_with($host, '.localhost')) {
+            $subdomain = substr($host, 0, -strlen('.localhost'));
         }
 
         if (! $subdomain || $subdomain === 'www') {
