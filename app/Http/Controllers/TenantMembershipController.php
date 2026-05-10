@@ -19,9 +19,20 @@ class TenantMembershipController extends Controller
             return response()->json([]);
         }
 
-        $memberships = Membership::query()->with('profile')
-            ->where('tenant_id', (string) $tenant->id)
-            ->get();
+        $query = Membership::query()->with('profile')
+            ->where('tenant_id', (string) $tenant->id);
+
+        foreach ($request->query() as $key => $value) {
+            if (! in_array($key, ['page', 'per_page', 'sort_by', 'sort_direction', 'tenant_id'])) {
+                if (is_array($value)) {
+                    $query->whereIn($key, $value);
+                } else {
+                    $query->where($key, $value);
+                }
+            }
+        }
+
+        $memberships = $query->get();
 
         return response()->json($memberships);
     }

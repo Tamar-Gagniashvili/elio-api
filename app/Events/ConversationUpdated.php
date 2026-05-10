@@ -26,4 +26,9 @@ class ConversationUpdated implements ShouldBroadcastNow
             new Channel('tenant.'.$this->conversation->tenant_id),
         ];
     }
+
+    public function broadcastAs(): string
+    {
+        return 'ConversationUpdated';
+    }
 }

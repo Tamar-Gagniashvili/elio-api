@@ -34,4 +34,9 @@ class MessageSent implements ShouldBroadcastNow
             new Channel('conversation.'.$this->message->conversation_id),
         ];
     }
+
+    public function broadcastAs(): string
+    {
+        return 'MessageSent';
+    }
 }

@@ -11,7 +11,7 @@ class PushSubscriptionController extends Controller
     {
         $query = PushSubscription::query();
         foreach ($request->query() as $key => $value) {
-            if (! in_array($key, ['page'])) {
+            if (! in_array($key, ['page', 'per_page', 'sort_by', 'sort_direction'])) {
                 if (is_array($value)) {
                     $query->whereIn($key, $value);
                 } else {
@@ -25,24 +25,29 @@ class PushSubscriptionController extends Controller
 
     public function store(Request $request)
     {
-        return response()->json(PushSubscription::create($request->all()), 201);
+        $subscription = PushSubscription::updateOrCreate(
+            ['user_id' => $request->user_id, 'endpoint' => $request->endpoint],
+            $request->all()
+        );
+
+        return response()->json($subscription, 201);
     }
 
-    public function show(PushSubscription $pushsubscription)
+    public function show(PushSubscription $push_subscription)
     {
-        return response()->json($pushsubscription);
+        return response()->json($push_subscription);
     }
 
-    public function update(Request $request, PushSubscription $pushsubscription)
+    public function update(Request $request, PushSubscription $push_subscription)
     {
-        $pushsubscription->update($request->all());
+        $push_subscription->update($request->all());
 
-        return response()->json($pushsubscription);
+        return response()->json($push_subscription);
     }
 
-    public function destroy(PushSubscription $pushsubscription)
+    public function destroy(PushSubscription $push_subscription)
     {
-        $pushsubscription->delete();
+        $push_subscription->delete();
 
         return response()->json(null, 204);
     }

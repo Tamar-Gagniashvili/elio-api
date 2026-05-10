@@ -23,6 +23,7 @@ return [
 
     'allowed_origins_patterns' => [
         '#^https://([a-z0-9-]+\.)?relink\.ge$#',
+        '#^http://([a-z0-9-]+\.)?localhost(:[0-9]+)?$#',
     ],
 
     'allowed_headers' => ['*'],

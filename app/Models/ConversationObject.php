@@ -11,4 +11,9 @@ class ConversationObject extends Model
     use BelongsToTenant, HasUuids;
 
     protected $guarded = [];
+
+    public function relinkObject()
+    {
+        return $this->belongsTo(RelinkObject::class, 'object_id');
+    }
 }

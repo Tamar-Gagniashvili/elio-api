@@ -9,15 +9,23 @@ class ConversationController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Conversation::query();
+        $query = Conversation::with('contact');
         foreach ($request->query() as $key => $value) {
-            if (! in_array($key, ['page'])) {
+            if (! in_array($key, ['page', 'per_page', 'sort_by', 'sort_direction'])) {
                 if (is_array($value)) {
                     $query->whereIn($key, $value);
                 } else {
                     $query->where($key, $value);
                 }
             }
+        }
+
+        if ($request->has('sort_by')) {
+            $query->orderBy($request->sort_by, $request->sort_direction ?? 'asc');
+        }
+
+        if ($request->has('per_page')) {
+            return response()->json($query->paginate($request->per_page));
         }
 
         return response()->json($query->get());
@@ -30,7 +38,7 @@ class ConversationController extends Controller
 
     public function show(Conversation $conversation)
     {
-        return response()->json($conversation);
+        return response()->json($conversation->load('contact'));
     }
 
     public function update(Request $request, Conversation $conversation)
@@ -50,7 +58,7 @@ class ConversationController extends Controller
             $conversation->update($data);
         }
 
-        return response()->json($conversation);
+        return response()->json($conversation->load('contact'));
     }
 
     public function destroy(Conversation $conversation)

@@ -9,9 +9,9 @@ class ConversationObjectController extends Controller
 {
     public function index(Request $request)
     {
-        $query = ConversationObject::query();
+        $query = ConversationObject::with(['relinkObject.status', 'relinkObject.type']);
         foreach ($request->query() as $key => $value) {
-            if (! in_array($key, ['page'])) {
+            if (! in_array($key, ['page', 'per_page', 'sort_by', 'sort_direction'])) {
                 if (is_array($value)) {
                     $query->whereIn($key, $value);
                 } else {

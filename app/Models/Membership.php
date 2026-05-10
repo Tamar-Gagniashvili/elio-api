@@ -22,4 +22,9 @@ class Membership extends Model
     {
         return $this->hasOne(Profile::class, 'user_id', 'user_id');
     }
+
+    public function tenant()
+    {
+        return $this->belongsTo(Tenant::class, 'tenant_id');
+    }
 }

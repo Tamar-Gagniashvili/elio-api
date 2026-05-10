@@ -9,9 +9,9 @@ class ContactLinkController extends Controller
 {
     public function index(Request $request)
     {
-        $query = ContactLink::query();
+        $query = ContactLink::with('contactLinkGroup');
         foreach ($request->query() as $key => $value) {
-            if (! in_array($key, ['page'])) {
+            if (! in_array($key, ['page', 'per_page', 'sort_by', 'sort_direction'])) {
                 if (is_array($value)) {
                     $query->whereIn($key, $value);
                 } else {
@@ -25,24 +25,25 @@ class ContactLinkController extends Controller
 
     public function store(Request $request)
     {
-        return response()->json(ContactLink::create($request->all()), 201);
+        // Ignore created_by if it's accidentally sent by the frontend
+        return response()->json(ContactLink::create($request->except(['created_by'])), 201);
     }
 
-    public function show(ContactLink $contactlink)
+    public function show(ContactLink $contact_link)
     {
-        return response()->json($contactlink);
+        return response()->json($contact_link);
     }
 
-    public function update(Request $request, ContactLink $contactlink)
+    public function update(Request $request, ContactLink $contact_link)
     {
-        $contactlink->update($request->all());
+        $contact_link->update($request->all());
 
-        return response()->json($contactlink);
+        return response()->json($contact_link);
     }
 
-    public function destroy(ContactLink $contactlink)
+    public function destroy(ContactLink $contact_link)
     {
-        $contactlink->delete();
+        $contact_link->delete();
 
         return response()->json(null, 204);
     }

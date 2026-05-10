@@ -12,5 +12,8 @@ class ContactLink extends Model
 
     protected $guarded = [];
 
-    //
+    public function contactLinkGroup()
+    {
+        return $this->belongsTo(ContactLinkGroup::class, 'link_group_id');
+    }
 }

@@ -251,7 +251,6 @@ class RoutingRuleService
                 'tenant_id' => $tenantId,
                 'rule_id' => $ruleId,
                 'conversation_id' => $conversationId ?: null,
-                'contact_id' => $contactId ?: null,
                 'action_type' => $type,
                 'action_details' => $action,
                 'executed_at' => now(),

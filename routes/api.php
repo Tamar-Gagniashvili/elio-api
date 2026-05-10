@@ -71,6 +71,8 @@ Route::middleware(['tenant'])->group(function () {
     Route::apiResource('note-statuses', NoteStatusController::class);
     Route::apiResource('contact-link-groups', ContactLinkGroupController::class);
     Route::apiResource('contacts', ContactController::class);
+    Route::post('contact-statuses/bulk', [ContactStatusController::class, 'bulkStore']);
+    Route::delete('contact-statuses/bulk', [ContactStatusController::class, 'bulkDelete']);
     Route::apiResource('contact-statuses', ContactStatusController::class);
     Route::apiResource('conversations', ConversationController::class);
     Route::apiResource('object-types', ObjectTypeController::class);

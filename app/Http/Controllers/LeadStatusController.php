@@ -11,7 +11,7 @@ class LeadStatusController extends Controller
     {
         $query = LeadStatus::query();
         foreach ($request->query() as $key => $value) {
-            if (! in_array($key, ['page'])) {
+            if (! in_array($key, ['page', 'per_page', 'sort_by', 'sort_direction'])) {
                 if (is_array($value)) {
                     $query->whereIn($key, $value);
                 } else {

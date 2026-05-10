@@ -25,9 +25,15 @@ class ContactNoteController extends Controller
 
     public function index(Request $request)
     {
-        $query = ContactNote::query();
+        $query = ContactNote::with('contact');
+
+        if ($request->has('due_before')) {
+            $query->whereNotNull('reminder_at')
+                ->where('reminder_at', '<=', $request->query('due_before'));
+        }
+
         foreach ($request->query() as $key => $value) {
-            if (! in_array($key, ['page'])) {
+            if (! in_array($key, ['page', 'per_page', 'sort_by', 'sort_direction', 'due_before'])) {
                 if (is_array($value)) {
                     $query->whereIn($key, $value);
                 } else {
@@ -47,25 +53,25 @@ class ContactNoteController extends Controller
         return response()->json(ContactNote::create($data), 201);
     }
 
-    public function show(ContactNote $contactnote)
+    public function show(ContactNote $contact_note)
     {
-        return response()->json($contactnote);
+        return response()->json($contact_note);
     }
 
-    public function update(Request $request, ContactNote $contactnote)
+    public function update(Request $request, ContactNote $contact_note)
     {
         $data = $request->all();
         if (array_key_exists('reminder_at', $data)) {
             $data['reminder_at'] = $this->normaliseDatetime($data['reminder_at']);
         }
-        $contactnote->update($data);
+        $contact_note->update($data);
 
-        return response()->json($contactnote);
+        return response()->json($contact_note);
     }
 
-    public function destroy(ContactNote $contactnote)
+    public function destroy(ContactNote $contact_note)
     {
-        $contactnote->delete();
+        $contact_note->delete();
 
         return response()->json(null, 204);
     }
