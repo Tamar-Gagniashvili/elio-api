@@ -68,14 +68,14 @@ class MetaMessageIngestor
     }
 
     /**
-     * Name of a Messenger PSID / Instagram IGSID. New apps only get `name` (no profile_pic),
-     * so avatars fall back to initials in the UI.
+     * Messenger PSIDs expose `name`, Instagram IGSIDs only `username`. Profile pictures are not
+     * available to new apps, so avatars fall back to initials in the UI.
      */
     private function fetchProfileName(string $senderId, string $channelType, string $pageAccessToken): ?string
     {
         try {
             $profile = Http::timeout(5)->get('https://graph.facebook.com/'.config('services.meta.graph_version')."/{$senderId}", [
-                'fields' => $channelType === 'instagram' ? 'name,username' : 'name',
+                'fields' => $channelType === 'instagram' ? 'username' : 'name',
                 'access_token' => $pageAccessToken,
             ]);
 
@@ -85,7 +85,7 @@ class MetaMessageIngestor
                 return null;
             }
 
-            return $profile->json('name') ?: $profile->json('username');
+            return $channelType === 'instagram' ? $profile->json('username') : $profile->json('name');
         } catch (\Throwable $e) {
             Log::warning('Meta profile lookup failed', ['sender_id' => $senderId, 'error' => $e->getMessage()]);
 
