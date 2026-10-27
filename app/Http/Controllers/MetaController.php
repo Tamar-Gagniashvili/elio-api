@@ -299,7 +299,8 @@ class MetaController extends Controller
                         $event['sender']['id'],
                         $message['text'] ?? '[Media message]',
                         $message['mid'] ?? '',
-                        ['page_id' => $connection->page_id]
+                        ['page_id' => $connection->page_id],
+                        $connection->page_access_token
                     );
                 } catch (\Throwable $e) {
                     // Never fail the webhook: Meta retries and eventually disables failing endpoints
