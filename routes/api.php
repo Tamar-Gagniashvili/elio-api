@@ -14,6 +14,7 @@ use App\Http\Controllers\EdgeFunctionController;
 use App\Http\Controllers\LeadStatusController;
 use App\Http\Controllers\MembershipController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\MetaController;
 use App\Http\Controllers\NoteStatusController;
 use App\Http\Controllers\ObjectStatusController;
 use App\Http\Controllers\ObjectTypeController;
@@ -58,6 +59,10 @@ Route::group(['prefix' => 'functions'], function () {
     Route::post('/create-user', [EdgeFunctionController::class, 'createUser']);
 });
 
+// Facebook Login for Business — landlord-level; tenant comes from the signed `state` / webhook page id
+Route::get('/auth/facebook/callback', [MetaController::class, 'callback']);
+Route::match(['get', 'post'], '/webhooks/facebook', [MetaController::class, 'webhook']);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Tenant-scoped routes — require a valid tenant (resolved from subdomain)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,6 +89,12 @@ Route::middleware(['tenant'])->group(function () {
     Route::apiResource('rule-action-logs', RuleActionLogController::class);
     Route::apiResource('chat-distributions', ChatDistributionController::class);
     Route::get('tenant-memberships', [TenantMembershipController::class, 'index']);
+
+    Route::middleware('auth:sanctum')->prefix('meta')->group(function () {
+        Route::get('/connect-url', [MetaController::class, 'connectUrl']);
+        Route::get('/connections', [MetaController::class, 'index']);
+        Route::delete('/connections/{metaConnection}', [MetaController::class, 'destroy']);
+    });
 
     // Tenant-aware edge function proxies
     Route::prefix('functions')->group(function () {

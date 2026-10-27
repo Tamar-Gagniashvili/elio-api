@@ -7,16 +7,19 @@ use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Membership;
 use App\Models\Message;
+use App\Models\MetaConnection;
 use App\Models\Profile;
 use App\Models\RelinkObject;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\ChannelEncryptionService;
+use App\Services\MetaMessageIngestor;
 use App\Services\RoutingRuleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Minishlink\WebPush\Subscription;
 use Minishlink\WebPush\WebPush;
@@ -27,10 +30,13 @@ class EdgeFunctionController extends Controller
 
     private $routingService;
 
-    public function __construct(ChannelEncryptionService $encryptionService, RoutingRuleService $routingService)
+    private $metaIngestor;
+
+    public function __construct(ChannelEncryptionService $encryptionService, RoutingRuleService $routingService, MetaMessageIngestor $metaIngestor)
     {
         $this->encryptionService = $encryptionService;
         $this->routingService = $routingService;
+        $this->metaIngestor = $metaIngestor;
     }
 
     private function stubResponse($functionName)
@@ -48,16 +54,34 @@ class EdgeFunctionController extends Controller
         $challenge = $request->query('hub_challenge');
         $tenantId = $request->query('tenant_id');
 
-        if ($mode === 'subscribe' && $tenantId) {
-            $channel = Channel::where('tenant_id', $tenantId)->where('channel_type', $channelType)->first();
+        if ($mode !== 'subscribe' || ! $tenantId) {
+            Log::warning("Meta webhook verify ({$channelType}): missing hub.mode=subscribe or tenant_id", ['tenant_id' => $tenantId, 'mode' => $mode]);
+
+            return response('Forbidden', 403);
+        }
+
+        $channels = Channel::where('tenant_id', $tenantId)->where('channel_type', $channelType)->get();
+        if ($channels->isEmpty()) {
+            Log::warning("Meta webhook verify ({$channelType}): no channel for tenant", ['tenant_id' => $tenantId]);
+
+            return response('Forbidden', 403);
+        }
+
+        foreach ($channels as $channel) {
             $storedToken = $channel->config['verify_token'] ?? null;
             if ($storedToken) {
-                $storedToken = $this->encryptionService->decryptCredential($storedToken);
+                $storedToken = trim($this->encryptionService->decryptCredential($storedToken));
             }
-            if ($token === $storedToken) {
-                return response($challenge, 200);
+            if ($storedToken && hash_equals($storedToken, trim((string) $token))) {
+                return response($challenge, 200)->header('Content-Type', 'text/plain');
             }
         }
+
+        Log::warning("Meta webhook verify ({$channelType}): verify_token mismatch", [
+            'tenant_id' => $tenantId,
+            'channels' => $channels->count(),
+            'has_stored_token' => $channels->contains(fn ($c) => ! empty($c->config['verify_token'])),
+        ]);
 
         return response('Forbidden', 403);
     }
@@ -307,13 +331,41 @@ class EdgeFunctionController extends Controller
             return response()->json(['error' => 'Not a Messenger/Instagram conversation'], 400);
         }
 
+        $recipientId = $conversation->contact->external_id;
+
+        // Pages connected via Facebook Login: reply from the page that received the message
+        $connections = MetaConnection::where('tenant_id', $conversation->tenant_id)
+            ->when($channelType === 'instagram', fn ($q) => $q->whereNotNull('instagram_account_id'));
+        $pageId = $conversation->contact->metadata['page_id'] ?? null;
+        $connection = ($pageId ? (clone $connections)->where('page_id', $pageId)->first() : null) ?? $connections->first();
+
+        if ($connection) {
+            try {
+                $response = Http::post('https://graph.facebook.com/'.config('services.meta.graph_version').'/me/messages?'.http_build_query([
+                    'access_token' => $connection->page_access_token,
+                ]), [
+                    'recipient' => ['id' => $recipientId],
+                    'messaging_type' => 'RESPONSE',
+                    'message' => ['text' => $content],
+                ]);
+
+                if (! $response->successful()) {
+                    return response()->json(['error' => $response->json()['error']['message'] ?? 'Failed to send message'], 500);
+                }
+
+                return response()->json(['success' => true]);
+            } catch (\Exception $e) {
+                return response()->json(['error' => $e->getMessage()], 500);
+            }
+        }
+
+        // Legacy: manually entered page credentials on the channel
         $channel = Channel::where('tenant_id', $conversation->tenant_id)->where('channel_type', $channelType)->where('is_active', true)->first();
         if (! $channel || empty($channel->config['page_access_token'])) {
             return response()->json(['error' => "{$channelType} channel or page access token not configured"], 400);
         }
 
         $pageToken = $this->encryptionService->decryptCredential($channel->config['page_access_token']);
-        $recipientId = $conversation->contact->external_id;
 
         try {
             $pageId = $channel->config['page_id'] ?? 'me';
@@ -798,39 +850,7 @@ class EdgeFunctionController extends Controller
                     continue;
                 }
 
-                $senderId = $event['sender']['id'];
-                $text = $event['message']['text'] ?? '[Media message]';
-
-                $contact = Contact::firstOrCreate(
-                    ['tenant_id' => $tenantId, 'external_id' => $senderId, 'channel_type' => 'instagram'],
-                    ['name' => 'Instagram User', 'metadata' => []]
-                );
-
-                $now = now();
-                $ruleContext = [
-                    'channel_type' => 'instagram', 'message_content' => $text, 'message_language' => 'en',
-                    'contact_name' => $contact->name ?? '', 'contact_email' => $contact->email ?? '', 'contact_phone' => $contact->phone ?? '',
-                    'hour' => $now->hour, 'day_of_week' => $now->dayOfWeek,
-                ];
-
-                $conversation = Conversation::where('tenant_id', $tenantId)->where('contact_id', $contact->id)->whereIn('status', ['open', 'assigned'])->first();
-
-                if (! $conversation) {
-                    $assignedTo = $this->routingService->evaluateRoutingRules($tenantId, null, $contact->id, $ruleContext, $channel->config ?? [])['assignedTo'] ?? $this->routingService->getNextSalesRep($tenantId);
-                    $conversation = Conversation::create([
-                        'tenant_id' => $tenantId, 'contact_id' => $contact->id, 'channel_id' => $channel->id,
-                        'status' => $assignedTo ? 'assigned' : 'open', 'assigned_to' => $assignedTo, 'assignment_seen_by_assignee' => ! $assignedTo,
-                        'last_message_at' => $now, 'last_message_preview' => mb_substr($text, 0, 100),
-                    ]);
-                } else {
-                    $conversation->update(['last_message_at' => $now, 'last_message_preview' => mb_substr($text, 0, 100), 'unread_count' => $conversation->unread_count + 1]);
-                }
-                $this->routingService->evaluateRoutingRules($tenantId, $conversation->id, $contact->id, $ruleContext, $channel->config ?? []);
-
-                Message::create([
-                    'tenant_id' => $tenantId, 'conversation_id' => $conversation->id, 'sender_type' => 'contact', 'content' => $text,
-                    'metadata' => ['instagram_message_id' => $event['message']['mid']],
-                ]);
+                $this->metaIngestor->ingest($tenantId, $channel, $event['sender']['id'], $event['message']['text'] ?? '[Media message]', $event['message']['mid']);
             }
         }
 
@@ -867,39 +887,7 @@ class EdgeFunctionController extends Controller
                     continue;
                 }
 
-                $senderId = $event['sender']['id'];
-                $text = $event['message']['text'] ?? '[Media message]';
-
-                $contact = Contact::firstOrCreate(
-                    ['tenant_id' => $tenantId, 'external_id' => $senderId, 'channel_type' => 'messenger'],
-                    ['name' => 'Messenger User', 'metadata' => []]
-                );
-
-                $now = now();
-                $ruleContext = [
-                    'channel_type' => 'messenger', 'message_content' => $text, 'message_language' => 'en',
-                    'contact_name' => $contact->name ?? '', 'contact_email' => $contact->email ?? '', 'contact_phone' => $contact->phone ?? '',
-                    'hour' => $now->hour, 'day_of_week' => $now->dayOfWeek,
-                ];
-
-                $conversation = Conversation::where('tenant_id', $tenantId)->where('contact_id', $contact->id)->whereIn('status', ['open', 'assigned'])->first();
-
-                if (! $conversation) {
-                    $assignedTo = $this->routingService->evaluateRoutingRules($tenantId, null, $contact->id, $ruleContext, $channel->config ?? [])['assignedTo'] ?? $this->routingService->getNextSalesRep($tenantId);
-                    $conversation = Conversation::create([
-                        'tenant_id' => $tenantId, 'contact_id' => $contact->id, 'channel_id' => $channel->id,
-                        'status' => $assignedTo ? 'assigned' : 'open', 'assigned_to' => $assignedTo, 'assignment_seen_by_assignee' => ! $assignedTo,
-                        'last_message_at' => $now, 'last_message_preview' => mb_substr($text, 0, 100),
-                    ]);
-                } else {
-                    $conversation->update(['last_message_at' => $now, 'last_message_preview' => mb_substr($text, 0, 100), 'unread_count' => $conversation->unread_count + 1]);
-                }
-                $this->routingService->evaluateRoutingRules($tenantId, $conversation->id, $contact->id, $ruleContext, $channel->config ?? []);
-
-                Message::create([
-                    'tenant_id' => $tenantId, 'conversation_id' => $conversation->id, 'sender_type' => 'contact', 'content' => $text,
-                    'metadata' => ['messenger_message_id' => $event['message']['mid']],
-                ]);
+                $this->metaIngestor->ingest($tenantId, $channel, $event['sender']['id'], $event['message']['text'] ?? '[Media message]', $event['message']['mid']);
             }
         }
 

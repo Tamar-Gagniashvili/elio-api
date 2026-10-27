@@ -35,6 +35,15 @@ return [
         ],
     ],
 
+    'meta' => [
+        'app_id' => env('META_APP_ID'),
+        'app_secret' => env('META_APP_SECRET'),
+        'login_config_id' => env('META_LOGIN_CONFIG_ID'),
+        'verify_token' => env('META_VERIFY_TOKEN'),
+        'redirect_uri' => env('META_REDIRECT_URI', 'https://api.relink.ge/api/auth/facebook/callback'),
+        'graph_version' => env('META_GRAPH_VERSION', 'v21.0'),
+    ],
+
     'vapid' => [
         'public_key' => env('VAPID_PUBLIC_KEY'),
         'private_key' => env('VAPID_PRIVATE_KEY'),
