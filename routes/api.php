@@ -91,6 +91,7 @@ Route::middleware(['tenant'])->group(function () {
         Route::put('sms-settings', [SmsSettingsController::class, 'update']);
         Route::get('payment-settings', [PaymentSettingsController::class, 'show']);
         Route::put('payment-settings', [PaymentSettingsController::class, 'update']);
+        Route::put('payment-settings/advance-payment', [PaymentSettingsController::class, 'updateAdvancePayment']);
         Route::get('payments', [PaymentController::class, 'index']);
         Route::post('payments', [PaymentController::class, 'store']);
     });

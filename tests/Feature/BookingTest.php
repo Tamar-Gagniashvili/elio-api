@@ -56,6 +56,17 @@ class BookingTest extends TestCase
         $this->assertSame($this->tenant->id, Booking::first()->tenant_id);
     }
 
+    public function test_saves_the_session_price(): void
+    {
+        $id = $this->postJson(self::BASE, $this->payload(['price' => 120]))
+            ->assertCreated()
+            ->assertJsonPath('price', '120.00')
+            ->json('id');
+
+        $this->putJson(self::BASE."/{$id}", ['price' => 95.5])->assertOk()->assertJsonPath('price', '95.50');
+        $this->putJson(self::BASE."/{$id}", ['price' => -5])->assertUnprocessable()->assertJsonValidationErrors('price');
+    }
+
     public function test_rejects_overlapping_booking_for_same_psychologist(): void
     {
         $this->postJson(self::BASE, $this->payload())->assertCreated();

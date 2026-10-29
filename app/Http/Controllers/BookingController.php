@@ -89,6 +89,7 @@ class BookingController extends Controller
             'ends_at' => [$required, 'date'],
             'status' => ['sometimes', Rule::in(Booking::STATUSES)],
             'notes' => ['nullable', 'string'],
+            'price' => ['nullable', 'numeric', 'min:0', 'max:100000'],
         ]);
 
         foreach (['starts_at', 'ends_at'] as $field) {

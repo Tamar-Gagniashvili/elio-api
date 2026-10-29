@@ -16,6 +16,14 @@ class PaymentSettings extends Model
         'provider',
         'bog_settings',
         'flitt_settings',
+        'advance_payment_enabled',
+        'advance_payment_hours_before',
+        'advance_payment_message',
+    ];
+
+    protected $attributes = [
+        'advance_payment_enabled' => false,
+        'advance_payment_hours_before' => 24,
     ];
 
     protected $hidden = [
@@ -29,6 +37,8 @@ class PaymentSettings extends Model
             'provider' => PaymentProvider::class,
             'bog_settings' => 'encrypted:array',
             'flitt_settings' => 'encrypted:array',
+            'advance_payment_enabled' => 'boolean',
+            'advance_payment_hours_before' => 'integer',
         ];
     }
 }

@@ -22,6 +22,8 @@ class Booking extends Model
     protected $casts = [
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
+        'advance_payment_requested_at' => 'datetime',
+        'price' => 'decimal:2',
     ];
 
     public function contact()
@@ -37,6 +39,12 @@ class Booking extends Model
     public function staff()
     {
         return $this->belongsTo(User::class, 'staff_user_id');
+    }
+
+    /** Payments for this session, e.g. the advance payment */
+    public function payments()
+    {
+        return $this->morphMany(Payment::class, 'payable');
     }
 
     public function staffProfile()

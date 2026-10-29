@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\RequestAdvancePaymentAction;
 use App\Data\Payment\BogCredentialsData;
 use App\Data\Payment\FlittCredentialsData;
 use App\Enums\PaymentProvider;
 use App\Http\Controllers\Concerns\AuthorizesTenantAdmin;
 use App\Models\PaymentSettings;
 use App\Services\Payment\PaymentSettingsService;
+use App\Services\Sms\SmsSettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -74,6 +76,37 @@ class PaymentSettingsController extends Controller
         return response()->json($this->present($settings));
     }
 
+    /** Pay in advance: texting clients a payment link some hours before their session. */
+    public function updateAdvancePayment(Request $request): JsonResponse
+    {
+        $this->authorizeAdmin($request);
+
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+            'hours_before' => ['required', 'integer', 'min:1', 'max:336'],
+            'message' => ['nullable', 'required_if:enabled,true', 'string', 'max:600'],
+        ]);
+
+        if (filled($validated['message'] ?? null) && ! str_contains($validated['message'], '{link}')) {
+            throw ValidationException::withMessages(['message' => 'The message must include {link}, where the payment link goes.']);
+        }
+
+        if ($validated['enabled'] && ! PaymentSettingsService::isConfigured()) {
+            throw ValidationException::withMessages(['enabled' => 'Set up a payment provider first.']);
+        }
+
+        $settings = PaymentSettings::firstOrNew();
+        $settings->fill([
+            'advance_payment_enabled' => $validated['enabled'],
+            'advance_payment_hours_before' => $validated['hours_before'],
+            'advance_payment_message' => $validated['message'] ?? null,
+        ])->save();
+
+        PaymentSettingsService::clearCache();
+
+        return response()->json($this->present($settings));
+    }
+
     /** @return array<string, mixed> */
     private function present(?PaymentSettings $settings): array
     {
@@ -97,6 +130,14 @@ class PaymentSettingsController extends Controller
                 'has_secret_key' => $flitt->secretKey !== '',
                 'callback_url' => route('payments.callbacks.flitt'),
             ],
+            'advance_payment' => [
+                'enabled' => (bool) $settings?->advance_payment_enabled,
+                'hours_before' => $settings?->advance_payment_hours_before ?? 24,
+                'message' => $settings?->advance_payment_message,
+                'default_message' => RequestAdvancePaymentAction::DEFAULT_MESSAGE,
+            ],
+            // Links go out by SMS, so the clinic needs its InexPhone account set up too
+            'sms_configured' => SmsSettingsService::getInexPhoneSettings() !== null,
         ];
     }
 
