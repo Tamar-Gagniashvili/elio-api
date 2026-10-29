@@ -59,7 +59,18 @@ class PaymentSettingsService
 
     private static function settings(): ?PaymentSettings
     {
-        return Cache::remember(self::cacheKey(), 3600, fn () => PaymentSettings::first());
+        // The cache only stores plain values (no objects), so the row's raw attributes are cached,
+        // secrets still encrypted, and the model is rebuilt from them
+        $load = fn () => PaymentSettings::first()?->getAttributes();
+        $attributes = Cache::remember(self::cacheKey(), 3600, $load);
+
+        // Entries cached as whole models before this format can't be read back; replace them
+        if ($attributes !== null && ! is_array($attributes)) {
+            Cache::forget(self::cacheKey());
+            $attributes = Cache::remember(self::cacheKey(), 3600, $load);
+        }
+
+        return is_array($attributes) ? (new PaymentSettings)->newFromBuilder($attributes) : null;
     }
 
     private static function cacheKey(): string
