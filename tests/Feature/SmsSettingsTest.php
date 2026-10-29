@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Membership;
 use App\Models\SmsSettings;
 use App\Models\Tenant;
 use App\Models\User;
@@ -15,11 +16,21 @@ class SmsSettingsTest extends TestCase
 
     private const URL = 'http://clinic.localhost/api/sms-settings';
 
+    private Tenant $tenant;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        Tenant::create(['name' => 'Clinic', 'slug' => 'clinic'])->makeCurrent();
+        $this->tenant = Tenant::create(['name' => 'Clinic', 'slug' => 'clinic']);
+        $this->tenant->makeCurrent();
+    }
+
+    private function actingAsMember(string $role = 'admin'): void
+    {
+        $user = User::factory()->create();
+        Membership::create(['tenant_id' => $this->tenant->id, 'user_id' => $user->id, 'role' => $role, 'is_active' => true]);
+        Sanctum::actingAs($user);
     }
 
     private function payload(array $overrides = []): array
@@ -38,9 +49,28 @@ class SmsSettingsTest extends TestCase
         $this->putJson(self::URL, $this->payload())->assertUnauthorized();
     }
 
+    public function test_only_clinic_admins_can_manage_sms_settings(): void
+    {
+        $this->actingAsMember('sales');
+
+        $this->getJson(self::URL)->assertForbidden();
+        $this->putJson(self::URL, $this->payload())->assertForbidden();
+    }
+
+    public function test_defaults_to_the_inexphone_api_url(): void
+    {
+        $this->actingAsMember();
+
+        $this->getJson(self::URL)->assertOk()->assertJson(['is_configured' => false, 'api_url' => 'https://smsservice.inexphone.ge/api/v1']);
+
+        $this->putJson(self::URL, $this->payload(['api_url' => null]))
+            ->assertOk()
+            ->assertJson(['is_configured' => true, 'api_url' => 'https://smsservice.inexphone.ge/api/v1']);
+    }
+
     public function test_saves_settings_without_ever_returning_the_api_key(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->actingAsMember();
 
         $this->putJson(self::URL, $this->payload())
             ->assertOk()
@@ -53,7 +83,7 @@ class SmsSettingsTest extends TestCase
 
     public function test_a_blank_api_key_keeps_the_saved_one(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->actingAsMember();
         $this->putJson(self::URL, $this->payload())->assertOk();
 
         $this->putJson(self::URL, $this->payload(['api_key' => '', 'default_subject' => 'NewName']))->assertOk();
@@ -65,7 +95,7 @@ class SmsSettingsTest extends TestCase
 
     public function test_the_first_save_needs_an_api_key(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->actingAsMember();
 
         $this->putJson(self::URL, $this->payload(['api_key' => null]))->assertUnprocessable();
     }

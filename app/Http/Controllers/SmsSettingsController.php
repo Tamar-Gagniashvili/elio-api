@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\SmsProvider;
+use App\Http\Controllers\Concerns\AuthorizesTenantAdmin;
 use App\Models\SmsSettings;
 use App\Services\Sms\SmsSettingsService;
 use Illuminate\Http\JsonResponse;
@@ -14,16 +15,25 @@ use Illuminate\Http\Request;
  */
 class SmsSettingsController extends Controller
 {
-    public function show(): JsonResponse
+    use AuthorizesTenantAdmin;
+
+    /** InexPhone's API, used unless a clinic enters another address */
+    public const DEFAULT_API_URL = 'https://smsservice.inexphone.ge/api/v1';
+
+    public function show(Request $request): JsonResponse
     {
+        $this->authorizeTenantAdmin($request, 'Only workspace admins can manage SMS settings.');
+
         return response()->json($this->present(SmsSettings::first()));
     }
 
     public function update(Request $request): JsonResponse
     {
+        $this->authorizeTenantAdmin($request, 'Only workspace admins can manage SMS settings.');
+
         $validated = $request->validate([
             'api_key' => ['nullable', 'string', 'max:500'],
-            'api_url' => ['required', 'url', 'max:255'],
+            'api_url' => ['nullable', 'url', 'max:255'],
             'default_subject' => ['required', 'string', 'max:20'],
             'submit_callback_url' => ['nullable', 'url', 'max:255'],
             'delivery_callback_url' => ['nullable', 'url', 'max:255'],
@@ -43,7 +53,7 @@ class SmsSettingsController extends Controller
             'sms_provider' => SmsProvider::InexPhone,
             'inex_phone_settings' => [
                 'apiKey' => $apiKey,
-                'apiUrl' => $validated['api_url'],
+                'apiUrl' => $validated['api_url'] ?? self::DEFAULT_API_URL,
                 'defaultSubject' => $validated['default_subject'],
                 'submitCallbackUrl' => $validated['submit_callback_url'] ?? null,
                 'deliveryCallbackUrl' => $validated['delivery_callback_url'] ?? null,
@@ -62,8 +72,9 @@ class SmsSettingsController extends Controller
 
         return [
             'sms_provider' => $settings?->sms_provider?->value,
+            'is_configured' => filled($data['apiKey'] ?? null) && filled($data['defaultSubject'] ?? null),
             'has_api_key' => filled($data['apiKey'] ?? null),
-            'api_url' => $data['apiUrl'] ?? null,
+            'api_url' => $data['apiUrl'] ?? self::DEFAULT_API_URL,
             'default_subject' => $data['defaultSubject'] ?? null,
             'submit_callback_url' => $data['submitCallbackUrl'] ?? null,
             'delivery_callback_url' => $data['deliveryCallbackUrl'] ?? null,
