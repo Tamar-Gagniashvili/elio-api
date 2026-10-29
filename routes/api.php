@@ -20,6 +20,7 @@ use App\Http\Controllers\NoteStatusController;
 use App\Http\Controllers\ObjectStatusController;
 use App\Http\Controllers\ObjectTypeController;
 use App\Http\Controllers\ObjectTypeFieldController;
+use App\Http\Controllers\PaymentCallbackController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\RelinkObjectController;
@@ -48,6 +49,12 @@ Route::apiResource('profiles', ProfileController::class);
 Route::apiResource('memberships', MembershipController::class);
 Route::apiResource('user-roles', UserRoleController::class);
 Route::apiResource('push-subscriptions', PushSubscriptionController::class);
+
+// Payment gateway callbacks — no tenant middleware (payment found by gateway order id)
+Route::prefix('payments/callbacks')->name('payments.callbacks.')->group(function () {
+    Route::post('bog', [PaymentCallbackController::class, 'bog'])->name('bog');
+    Route::post('flitt', [PaymentCallbackController::class, 'flitt'])->name('flitt');
+});
 
 // Webhooks — no tenant middleware (resolved internally from payload/query param)
 Route::group(['prefix' => 'functions'], function () {
