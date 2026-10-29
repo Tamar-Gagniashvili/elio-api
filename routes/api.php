@@ -88,26 +88,28 @@ Route::middleware(['tenant'])->group(function () {
         Route::get('sms-settings', [SmsSettingsController::class, 'show']);
         Route::put('sms-settings', [SmsSettingsController::class, 'update']);
     });
+    // Several controllers name their model argument without underscores (e.g. $leadstatus),
+    // so those resources use matching route parameter names for model binding to work.
     Route::apiResource('messages', MessageController::class);
     Route::apiResource('channels', ChannelController::class);
     Route::apiResource('contact-links', ContactLinkController::class);
-    Route::apiResource('relink-objects', RelinkObjectController::class);
-    Route::apiResource('lead-statuses', LeadStatusController::class);
-    Route::apiResource('note-statuses', NoteStatusController::class);
-    Route::apiResource('contact-link-groups', ContactLinkGroupController::class);
+    Route::apiResource('relink-objects', RelinkObjectController::class)->parameters(['relink-objects' => 'relinkobject']);
+    Route::apiResource('lead-statuses', LeadStatusController::class)->parameters(['lead-statuses' => 'leadstatus']);
+    Route::apiResource('note-statuses', NoteStatusController::class)->parameters(['note-statuses' => 'notestatus']);
+    Route::apiResource('contact-link-groups', ContactLinkGroupController::class)->parameters(['contact-link-groups' => 'contactlinkgroup']);
     Route::apiResource('contacts', ContactController::class);
     Route::post('contact-statuses/bulk', [ContactStatusController::class, 'bulkStore']);
     Route::delete('contact-statuses/bulk', [ContactStatusController::class, 'bulkDelete']);
-    Route::apiResource('contact-statuses', ContactStatusController::class);
+    Route::apiResource('contact-statuses', ContactStatusController::class)->parameters(['contact-statuses' => 'contactstatus']);
     Route::apiResource('conversations', ConversationController::class);
-    Route::apiResource('object-types', ObjectTypeController::class);
-    Route::apiResource('object-statuses', ObjectStatusController::class);
-    Route::apiResource('object-type-fields', ObjectTypeFieldController::class);
-    Route::apiResource('conversation-objects', ConversationObjectController::class);
+    Route::apiResource('object-types', ObjectTypeController::class)->parameters(['object-types' => 'objecttype']);
+    Route::apiResource('object-statuses', ObjectStatusController::class)->parameters(['object-statuses' => 'objectstatus']);
+    Route::apiResource('object-type-fields', ObjectTypeFieldController::class)->parameters(['object-type-fields' => 'objecttypefield']);
+    Route::apiResource('conversation-objects', ConversationObjectController::class)->parameters(['conversation-objects' => 'conversationobject']);
     Route::apiResource('contact-notes', ContactNoteController::class);
-    Route::apiResource('routing-rules', RoutingRuleController::class);
-    Route::apiResource('rule-action-logs', RuleActionLogController::class);
-    Route::apiResource('chat-distributions', ChatDistributionController::class);
+    Route::apiResource('routing-rules', RoutingRuleController::class)->parameters(['routing-rules' => 'routingrule']);
+    Route::apiResource('rule-action-logs', RuleActionLogController::class)->parameters(['rule-action-logs' => 'ruleactionlog']);
+    Route::apiResource('chat-distributions', ChatDistributionController::class)->parameters(['chat-distributions' => 'chatdistribution']);
     Route::apiResource('bookings', BookingController::class);
     Route::get('tenant-memberships', [TenantMembershipController::class, 'index']);
 
