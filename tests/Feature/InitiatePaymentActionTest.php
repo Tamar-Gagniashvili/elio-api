@@ -52,7 +52,8 @@ class InitiatePaymentActionTest extends TestCase
                 'description' => 'Session',
                 'quantity' => 1,
                 'unit_price' => 80.0,
-            ]]);
+            ]]
+            && $request['redirect_urls']['success'] === "http://localhost/api/payments/{$payment->id}/return");
     }
 
     public function test_creates_a_signed_flitt_order_using_the_payment_id(): void

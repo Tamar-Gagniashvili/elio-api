@@ -22,6 +22,7 @@ use App\Http\Controllers\ObjectTypeController;
 use App\Http\Controllers\ObjectTypeFieldController;
 use App\Http\Controllers\PaymentCallbackController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PaymentReturnController;
 use App\Http\Controllers\PaymentSettingsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PushSubscriptionController;
@@ -59,6 +60,9 @@ Route::prefix('payments/callbacks')->name('payments.callbacks.')->group(function
     Route::post('bog', [PaymentCallbackController::class, 'bog'])->name('bog');
     Route::post('flitt', [PaymentCallbackController::class, 'flitt'])->name('flitt');
 });
+
+// Where the client lands after paying — public, the client is not logged in
+Route::match(['get', 'post'], 'payments/{payment}/return', PaymentReturnController::class)->name('payments.return');
 
 // InexPhone SMS callbacks — no tenant middleware (message found by InexPhone's id)
 Route::prefix('sms/callbacks')->name('sms.callbacks.')->group(function () {

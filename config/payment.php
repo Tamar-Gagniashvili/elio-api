@@ -13,8 +13,10 @@ return [
     |--------------------------------------------------------------------------
     | Redirect URL after payment
     |--------------------------------------------------------------------------
+    | A full URL to send clients to after paying. Leave empty to use Elio's
+    | own payment result page.
     */
-    'redirect_url' => env('PAYMENT_REDIRECT_URL', '/'),
+    'redirect_url' => env('PAYMENT_REDIRECT_URL'),
 
     /*
     |--------------------------------------------------------------------------
