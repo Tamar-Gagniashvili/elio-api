@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChannelController;
 use App\Http\Controllers\ChatDistributionController;
 use App\Http\Controllers\ContactController;
@@ -88,6 +89,7 @@ Route::middleware(['tenant'])->group(function () {
     Route::apiResource('routing-rules', RoutingRuleController::class);
     Route::apiResource('rule-action-logs', RuleActionLogController::class);
     Route::apiResource('chat-distributions', ChatDistributionController::class);
+    Route::apiResource('bookings', BookingController::class);
     Route::get('tenant-memberships', [TenantMembershipController::class, 'index']);
 
     Route::middleware('auth:sanctum')->prefix('meta')->group(function () {
