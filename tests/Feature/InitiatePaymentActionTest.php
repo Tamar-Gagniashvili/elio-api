@@ -46,7 +46,13 @@ class InitiatePaymentActionTest extends TestCase
         $this->assertSame('bog-order-1', $payment->external_id);
         $this->assertSame(Tenant::current()->id, $payment->tenant_id);
         Http::assertSent(fn (Request $request) => $request->url() === 'https://bog.test/payments/v1/ecommerce/orders'
-            && $request['purchase_units']['total_amount'] == 80);
+            && $request['purchase_units']['total_amount'] == 80
+            && $request['purchase_units']['basket'] === [[
+                'product_id' => $payment->id,
+                'description' => 'Session',
+                'quantity' => 1,
+                'unit_price' => 80.0,
+            ]]);
     }
 
     public function test_creates_a_signed_flitt_order_using_the_payment_id(): void

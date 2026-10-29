@@ -22,6 +22,8 @@ final class BogOrderRequestData
             purchaseUnits: new BogPurchaseUnitsData(
                 currency: $data->currency,
                 totalAmount: $data->amount,
+                productId: $data->orderId,
+                description: $data->description,
             ),
             redirectUrls: new BogRedirectUrlsData(
                 success: $data->redirectUrl,
