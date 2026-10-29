@@ -6,6 +6,7 @@ use App\Actions\InitiatePaymentAction;
 use App\Enums\PaymentProvider;
 use App\Enums\PaymentStatus;
 use App\Models\Payment;
+use App\Models\PaymentSettings;
 use App\Models\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -25,7 +26,8 @@ class InitiatePaymentActionTest extends TestCase
 
     public function test_creates_a_bog_order_and_returns_its_checkout_url(): void
     {
-        config(['payment.provider' => 'bog', 'payment.bog.api_url' => 'https://bog.test', 'payment.bog.oauth_url' => 'https://bog-oauth.test']);
+        config(['payment.bog.api_url' => 'https://bog.test', 'payment.bog.oauth_url' => 'https://bog-oauth.test']);
+        PaymentSettings::create(['provider' => 'bog', 'bog_settings' => ['client_id' => 'clinic', 'client_secret' => 'secret']]);
         Http::fake([
             'bog-oauth.test/*' => Http::response(['access_token' => 'token', 'expires_in' => 3600]),
             'bog.test/payments/v1/ecommerce/orders' => Http::response([
@@ -34,9 +36,10 @@ class InitiatePaymentActionTest extends TestCase
             ]),
         ]);
 
-        $url = app(InitiatePaymentAction::class)->execute(80, 'Session');
+        $initiated = app(InitiatePaymentAction::class)->execute(80, 'Session');
 
-        $this->assertSame('https://payment.bog.ge/?order_id=bog-order-1', $url);
+        $this->assertSame('https://payment.bog.ge/?order_id=bog-order-1', $initiated->checkoutUrl);
+        $this->assertTrue($initiated->payment->is(Payment::sole()));
         $payment = Payment::sole();
         $this->assertSame(PaymentProvider::Bog, $payment->provider);
         $this->assertSame(PaymentStatus::Created, $payment->status);
@@ -48,16 +51,17 @@ class InitiatePaymentActionTest extends TestCase
 
     public function test_creates_a_signed_flitt_order_using_the_payment_id(): void
     {
-        config(['payment.provider' => 'flitt', 'payment.flitt.api_url' => 'https://flitt.test', 'payment.flitt.merchant_id' => 1, 'payment.flitt.secret_key' => 'secret']);
+        config(['payment.flitt.api_url' => 'https://flitt.test']);
+        PaymentSettings::create(['provider' => 'flitt', 'flitt_settings' => ['merchant_id' => 1, 'secret_key' => 'secret']]);
         Http::fake([
             'flitt.test/api/checkout/url' => Http::response([
                 'response' => ['response_status' => 'success', 'checkout_url' => 'https://pay.flitt.test/checkout'],
             ]),
         ]);
 
-        $url = app(InitiatePaymentAction::class)->execute(80.5, 'Session');
+        $initiated = app(InitiatePaymentAction::class)->execute(80.5, 'Session');
 
-        $this->assertSame('https://pay.flitt.test/checkout', $url);
+        $this->assertSame('https://pay.flitt.test/checkout', $initiated->checkoutUrl);
         $payment = Payment::sole();
         $this->assertSame($payment->id, $payment->external_id);
         Http::assertSent(fn (Request $request) => $request['request']['amount'] === 8050

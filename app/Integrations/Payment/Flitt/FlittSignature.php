@@ -2,6 +2,8 @@
 
 namespace App\Integrations\Payment\Flitt;
 
+use App\Services\Payment\PaymentSettingsService;
+
 /**
  * Flitt signs requests, responses and callbacks the same way: sha1 of the secret key followed by
  * every non-empty parameter value, ordered by parameter name and joined with "|".
@@ -39,6 +41,6 @@ class FlittSignature
 
     private function secretKey(): string
     {
-        return (string) config('payment.flitt.secret_key');
+        return PaymentSettingsService::flitt()->secretKey;
     }
 }

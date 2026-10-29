@@ -9,6 +9,7 @@ use App\Integrations\Payment\Data\CreatePaymentData;
 use App\Integrations\Payment\Flitt\Data\FlittOrderRequestData;
 use App\Integrations\Payment\Flitt\Data\FlittRecurringRequestData;
 use App\Integrations\Payment\Flitt\Responses\FlittCreatePaymentResult;
+use App\Services\Payment\PaymentSettingsService;
 use Exception;
 use Illuminate\Support\Facades\Http;
 
@@ -61,7 +62,7 @@ class FlittPaymentService implements PaymentProviderContract, SubscribableProvid
      */
     public function getPaymentDetails(string $externalId): array
     {
-        $merchantId = (int) config('payment.flitt.merchant_id');
+        $merchantId = PaymentSettingsService::flitt()->merchantId;
 
         $data = [
             'order_id' => $externalId,
@@ -93,7 +94,7 @@ class FlittPaymentService implements PaymentProviderContract, SubscribableProvid
     {
         $amountMinor = $this->resolveAmountMinor($externalId, $amount);
 
-        $merchantId = (int) config('payment.flitt.merchant_id');
+        $merchantId = PaymentSettingsService::flitt()->merchantId;
 
         $data = [
             'order_id' => $externalId,

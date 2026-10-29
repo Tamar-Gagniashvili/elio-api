@@ -6,6 +6,7 @@ use App\Enums\PaymentProvider;
 use App\Enums\PaymentStatus;
 use App\Integrations\Payment\Flitt\FlittSignature;
 use App\Models\Payment;
+use App\Models\PaymentSettings;
 use App\Models\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -29,12 +30,18 @@ class PaymentCallbackTest extends TestCase
         config([
             'payment.bog.api_url' => 'https://bog.test',
             'payment.bog.oauth_url' => 'https://bog-oauth.test',
-            'payment.flitt.secret_key' => 'test-secret',
             'payment.flitt.api_url' => 'https://flitt.test',
         ]);
 
-        // Callbacks come in without a tenant
         $this->tenant = Tenant::create(['name' => 'Clinic', 'slug' => 'clinic']);
+        $this->tenant->makeCurrent();
+        PaymentSettings::create([
+            'provider' => 'flitt',
+            'bog_settings' => ['client_id' => 'clinic', 'client_secret' => 'secret'],
+            'flitt_settings' => ['merchant_id' => 1, 'secret_key' => 'test-secret'],
+        ]);
+        // Callbacks come in without a tenant
+        Tenant::forgetCurrent();
     }
 
     private function payment(PaymentProvider $provider, PaymentStatus $status): Payment
@@ -75,7 +82,12 @@ class PaymentCallbackTest extends TestCase
             'amount' => 10000,
         ];
 
-        return [...$payload, 'signature' => app(FlittSignature::class)->generate($payload)];
+        // Signed with the clinic's secret key, as Flitt would
+        $this->tenant->makeCurrent();
+        $signature = app(FlittSignature::class)->generate($payload);
+        Tenant::forgetCurrent();
+
+        return [...$payload, 'signature' => $signature];
     }
 
     public function test_bog_callback_completes_and_refunds_a_payment(): void
@@ -138,6 +150,20 @@ class PaymentCallbackTest extends TestCase
 
         $forged = [...$this->flittCallback('approved'), 'signature' => 'forged'];
         $this->postJson(self::FLITT_URL, $forged)->assertNoContent();
+
+        $this->assertSame(PaymentStatus::Rejected, $payment->refresh()->status);
+    }
+
+    public function test_flitt_callback_signed_with_another_merchants_key_is_checked_with_flitt(): void
+    {
+        Http::fake(['flitt.test/api/status/order_id' => Http::response(['response' => ['order_status' => 'declined']])]);
+        $payment = $this->payment(PaymentProvider::Flitt, PaymentStatus::Created);
+
+        $payload = ['order_id' => 'ext-1', 'order_status' => 'approved', 'response_status' => 'success', 'amount' => 10000];
+        config(['payment.flitt.secret_key' => 'platform-secret']);
+        $payload['signature'] = app(FlittSignature::class)->generate($payload);
+
+        $this->postJson(self::FLITT_URL, $payload)->assertNoContent();
 
         $this->assertSame(PaymentStatus::Rejected, $payment->refresh()->status);
     }

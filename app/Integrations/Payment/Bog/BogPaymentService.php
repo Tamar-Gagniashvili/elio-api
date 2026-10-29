@@ -7,6 +7,7 @@ use App\Integrations\Payment\Bog\Responses\BogCreatePaymentResult;
 use App\Integrations\Payment\Contracts\CreatePaymentResult;
 use App\Integrations\Payment\Contracts\PaymentProviderContract;
 use App\Integrations\Payment\Data\CreatePaymentData;
+use App\Services\Payment\PaymentSettingsService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Cache;
@@ -110,23 +111,25 @@ class BogPaymentService implements PaymentProviderContract
 
     private function getAccessToken(): string
     {
+        $credentials = PaymentSettingsService::bog();
+        // Each clinic has its own BOG merchant, so tokens are cached per client id
+        $cacheKey = 'bog.auth.'.sha1($credentials->clientId);
+
         /** @var string|null $cachedToken */
-        $cachedToken = Cache::get('bog.auth.access_token');
+        $cachedToken = Cache::get("{$cacheKey}.access_token");
         /** @var string|null $cachedExpiry */
-        $cachedExpiry = Cache::get('bog.auth.expires_in');
+        $cachedExpiry = Cache::get("{$cacheKey}.expires_in");
 
         if (! $cachedToken || Carbon::now()->gt(Carbon::parse($cachedExpiry ?? ''))) {
-            return $this->authenticate()['access_token'];
+            return $this->authenticate($credentials->clientId, $credentials->clientSecret, $cacheKey)['access_token'];
         }
 
         return $cachedToken;
     }
 
     /** @return array<string, string> */
-    private function authenticate(): array
+    private function authenticate(string $clientId, string $clientSecret, string $cacheKey): array
     {
-        $clientId = (string) config('payment.bog.client_id');
-        $clientSecret = (string) config('payment.bog.client_secret');
 
         $response = Http::acceptJson()
             ->asForm()
@@ -143,8 +146,8 @@ class BogPaymentService implements PaymentProviderContract
         $rawExpiry = $response->json('expires_in');
         $expiresIn = Carbon::now()->addSeconds($rawExpiry ?? 0)->format('Y-m-d H:i:s');
 
-        Cache::put('bog.auth.access_token', $accessToken);
-        Cache::put('bog.auth.expires_in', $expiresIn);
+        Cache::put("{$cacheKey}.access_token", $accessToken);
+        Cache::put("{$cacheKey}.expires_in", $expiresIn);
 
         return ['access_token' => $accessToken, 'expires_in' => $expiresIn];
     }

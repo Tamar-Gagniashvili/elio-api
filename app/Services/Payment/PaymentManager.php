@@ -3,6 +3,7 @@
 namespace App\Services\Payment;
 
 use App\Enums\PaymentProvider;
+use App\Exceptions\PaymentsNotConfiguredException;
 use App\Integrations\Payment\Bog\BogPaymentService;
 use App\Integrations\Payment\Contracts\CreatePaymentResult;
 use App\Integrations\Payment\Contracts\PaymentProviderContract;
@@ -43,9 +44,18 @@ class PaymentManager
         return $this->service()->isPartialRefundSupported();
     }
 
+    /**
+     * The provider the current clinic takes payments with.
+     *
+     * @throws PaymentsNotConfiguredException
+     */
     public function configuredProvider(): PaymentProvider
     {
-        return PaymentProvider::from((string) config('payment.provider'));
+        if (! PaymentSettingsService::isConfigured()) {
+            throw new PaymentsNotConfiguredException;
+        }
+
+        return PaymentSettingsService::provider();
     }
 
     /** The service for the given provider, or for the configured one. */

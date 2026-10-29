@@ -16,7 +16,7 @@ use Illuminate\Http\Response;
 
 /**
  * Gateway callbacks arrive without a tenant (no subdomain), so payments are looked up across
- * tenants by their gateway order id.
+ * tenants by their gateway order id, and the payment's clinic is then made current.
  */
 class PaymentCallbackController extends Controller
 {
@@ -43,6 +43,9 @@ class PaymentCallbackController extends Controller
         if (! $payment) {
             return response()->noContent(404);
         }
+
+        // Signatures and status checks use the clinic's own merchant credentials
+        $payment->tenant?->makeCurrent();
 
         $status = PaymentStatus::bogStatus($orderStatusKey);
 
@@ -77,6 +80,9 @@ class PaymentCallbackController extends Controller
         if (! $payment) {
             return response()->noContent(404);
         }
+
+        // Signatures and status checks use the clinic's own merchant credentials
+        $payment->tenant?->makeCurrent();
 
         $payload = $request->payload();
         $order = FlittOrderData::fromArray($payload);

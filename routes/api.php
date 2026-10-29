@@ -21,6 +21,8 @@ use App\Http\Controllers\ObjectStatusController;
 use App\Http\Controllers\ObjectTypeController;
 use App\Http\Controllers\ObjectTypeFieldController;
 use App\Http\Controllers\PaymentCallbackController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PaymentSettingsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\RelinkObjectController;
@@ -87,6 +89,10 @@ Route::middleware(['tenant'])->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('sms-settings', [SmsSettingsController::class, 'show']);
         Route::put('sms-settings', [SmsSettingsController::class, 'update']);
+        Route::get('payment-settings', [PaymentSettingsController::class, 'show']);
+        Route::put('payment-settings', [PaymentSettingsController::class, 'update']);
+        Route::get('payments', [PaymentController::class, 'index']);
+        Route::post('payments', [PaymentController::class, 'store']);
     });
     // Several controllers name their model argument without underscores (e.g. $leadstatus),
     // so those resources use matching route parameter names for model binding to work.

@@ -18,12 +18,12 @@ final class CreatePaymentData
 
     public static function fromPayment(Payment $payment, bool $saveCard = false, ?string $redirectUrl = null): self
     {
-        $provider = config('payment.provider');
+        $provider = $payment->provider->value;
 
         return new self(
             orderId: (string) $payment->id,
             amount: (float) $payment->amount,
-            currency: (string) config("payment.{$provider}.currency", 'GEL'),
+            currency: $payment->ccy ?: (string) config("payment.{$provider}.currency", 'GEL'),
             callbackUrl: route("payments.callbacks.{$provider}"),
             redirectUrl: $redirectUrl ?? (string) config('payment.redirect_url', '/'),
             description: $payment->description,

@@ -4,6 +4,7 @@ namespace App\Integrations\Payment\Flitt\Data;
 
 use App\Integrations\Payment\Data\CreatePaymentData;
 use App\Integrations\Payment\Flitt\FlittSignature;
+use App\Services\Payment\PaymentSettingsService;
 
 final class FlittRecurringRequestData
 {
@@ -31,7 +32,7 @@ final class FlittRecurringRequestData
     /** @return array<string, mixed> */
     public function toArray(): array
     {
-        $merchantId = (int) config('payment.flitt.merchant_id');
+        $merchantId = PaymentSettingsService::flitt()->merchantId;
 
         $data = [
             'merchant_id' => $merchantId,
