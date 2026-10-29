@@ -26,6 +26,8 @@ use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\RelinkObjectController;
 use App\Http\Controllers\RoutingRuleController;
 use App\Http\Controllers\RuleActionLogController;
+use App\Http\Controllers\SmsCallbackController;
+use App\Http\Controllers\SmsSettingsController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantMembershipController;
 use App\Http\Controllers\UserRoleController;
@@ -56,6 +58,12 @@ Route::prefix('payments/callbacks')->name('payments.callbacks.')->group(function
     Route::post('flitt', [PaymentCallbackController::class, 'flitt'])->name('flitt');
 });
 
+// InexPhone SMS callbacks — no tenant middleware (message found by InexPhone's id)
+Route::prefix('sms/callbacks')->name('sms.callbacks.')->group(function () {
+    Route::post('submit', [SmsCallbackController::class, 'submit'])->name('submit');
+    Route::post('delivery', [SmsCallbackController::class, 'delivery'])->name('delivery');
+});
+
 // Webhooks — no tenant middleware (resolved internally from payload/query param)
 Route::group(['prefix' => 'functions'], function () {
     Route::post('/webchat', [EdgeFunctionController::class, 'webchat']);
@@ -76,6 +84,10 @@ Route::match(['get', 'post'], '/webhooks/facebook', [MetaController::class, 'web
 // ─────────────────────────────────────────────────────────────────────────────
 // Remaining tenant-scoped routes
 Route::middleware(['tenant'])->group(function () {
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('sms-settings', [SmsSettingsController::class, 'show']);
+        Route::put('sms-settings', [SmsSettingsController::class, 'update']);
+    });
     Route::apiResource('messages', MessageController::class);
     Route::apiResource('channels', ChannelController::class);
     Route::apiResource('contact-links', ContactLinkController::class);
