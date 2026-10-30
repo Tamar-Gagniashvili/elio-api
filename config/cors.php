@@ -22,7 +22,7 @@ return [
     'allowed_origins' => [],
 
     'allowed_origins_patterns' => [
-        '#^https://([a-z0-9-]+\.)?relink\.ge$#',
+        '#^https://([a-z0-9-]+\.)?elio\.ge$#',
         '#^http://([a-z0-9-]+\.)?localhost(:[0-9]+)?$#',
     ],
 
